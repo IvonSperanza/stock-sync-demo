@@ -1,0 +1,1513 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StockSync · Demo en vivo</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #17171f;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text: #f0eee8;
+    --muted: #7a7890;
+    --accent: #00e5a0;
+    --accent2: #7b5ea7;
+    --warn: #ff6b35;
+    --info: #4a9eff;
+    --ok: #00e5a0;
+    --red: #ff4d6d;
+    --mono: 'DM Mono', monospace;
+    --head: 'Syne', sans-serif;
+    --body: 'DM Sans', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    font-size: 15px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid noise overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Glow blob */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 800px;
+    height: 500px;
+    background: radial-gradient(ellipse, rgba(0,229,160,0.06) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  /* HEADER */
+  header {
+    padding: 52px 0 60px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-icon {
+    width: 36px;
+    height: 36px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .logo-icon svg { width: 20px; height: 20px; }
+
+  .logo-name {
+    font-family: var(--head);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+
+  .logo-name span { color: var(--accent); }
+
+  .badge-live {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,229,160,0.08);
+    border: 1px solid rgba(0,229,160,0.2);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.5px;
+  }
+
+  .dot-live {
+    width: 6px;
+    height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  .hero { margin-bottom: 56px; }
+
+  .hero h1 {
+    font-family: var(--head);
+    font-size: clamp(32px, 5vw, 52px);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -1.5px;
+    margin-bottom: 16px;
+  }
+
+  .hero h1 em {
+    font-style: normal;
+    color: var(--accent);
+  }
+
+  .hero p {
+    font-size: 16px;
+    color: var(--muted);
+    max-width: 520px;
+    line-height: 1.7;
+    font-weight: 300;
+  }
+
+  /* MAIN PANEL */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+
+  .panel-header {
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .panel-title {
+    font-family: var(--head);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .sync-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+  }
+
+  /* CHANNELS GRID */
+  .channels {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 0;
+    align-items: start;
+  }
+
+  .channel {
+    padding: 24px;
+  }
+
+  .channel-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .channel-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .ch-ml { background: rgba(255,230,0,0.12); }
+  .ch-tienda { background: rgba(74,158,255,0.12); }
+
+  .channel-label {
+    font-family: var(--head);
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  /* PRODUCT ROWS */
+  .product-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    transition: border-color 0.3s;
+    gap: 8px;
+  }
+
+  .product-row.conflict {
+    border-color: rgba(255,77,109,0.4);
+    background: rgba(255,77,109,0.05);
+  }
+
+  .product-row.synced {
+    border-color: rgba(0,229,160,0.25);
+  }
+
+  .prod-name {
+    font-size: 13px;
+    font-weight: 400;
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .prod-sku {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .stock-badge {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 6px;
+    min-width: 44px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .stock-ok { background: rgba(0,229,160,0.1); color: var(--ok); }
+  .stock-low { background: rgba(255,107,53,0.12); color: var(--warn); }
+  .stock-zero { background: rgba(255,77,109,0.12); color: var(--red); }
+  .stock-conflict { background: rgba(255,77,109,0.15); color: var(--red); border: 1px solid rgba(255,77,109,0.3); }
+
+  /* SYNC ARROW COLUMN */
+  .sync-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 8px;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    gap: 0;
+    min-width: 72px;
+  }
+
+  .sync-col-header {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    margin-bottom: 24px;
+    text-align: center;
+  }
+
+  .sync-row {
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+  }
+
+  .arrow-sync {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .arrow-line {
+    width: 24px;
+    height: 1px;
+    background: var(--accent);
+    opacity: 0.5;
+    position: relative;
+  }
+
+  .arrow-both::before, .arrow-both::after {
+    content: '';
+    position: absolute;
+    top: -3px;
+    width: 6px;
+    height: 6px;
+    border-top: 1px solid var(--accent);
+    border-right: 1px solid var(--accent);
+    opacity: 0.7;
+  }
+  .arrow-both::after { transform: rotate(45deg); right: -1px; }
+  .arrow-both::before { transform: rotate(-135deg); left: -1px; }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .sd-ok { background: var(--ok); }
+  .sd-conflict { background: var(--red); animation: pulse 1s infinite; }
+  .sd-syncing { background: var(--info); animation: pulse 0.7s infinite; }
+
+  /* SYNC BUTTON */
+  .sync-btn-wrap {
+    padding: 20px 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .conflict-alert {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--red);
+    font-family: var(--mono);
+  }
+
+  .btn-sync {
+    background: var(--accent);
+    color: #0a0a0f;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 22px;
+    font-family: var(--head);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.3px;
+    transition: opacity 0.2s, transform 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-sync:hover { opacity: 0.88; }
+  .btn-sync:active { transform: scale(0.97); }
+  .btn-sync:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+  .btn-sync svg { width: 16px; height: 16px; }
+
+  /* LOG PANEL */
+  .log-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+
+  .log-body {
+    padding: 16px 24px;
+    min-height: 120px;
+    max-height: 200px;
+    overflow-y: auto;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.8;
+  }
+
+  .log-body::-webkit-scrollbar { width: 4px; }
+  .log-body::-webkit-scrollbar-track { background: transparent; }
+  .log-body::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .log-line { display: flex; gap: 12px; }
+  .log-time { color: var(--muted); flex-shrink: 0; }
+  .log-ok { color: var(--ok); }
+  .log-warn { color: var(--warn); }
+  .log-err { color: var(--red); }
+  .log-info { color: var(--info); }
+  .log-new { animation: fadeIn 0.4s ease; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* STATS ROW */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    transition: border-color 0.3s;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+
+  .stat-value {
+    font-family: var(--head);
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+
+  .stat-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+    font-family: var(--mono);
+  }
+
+  /* EDIT STOCK */
+  .edit-hint {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--mono);
+    padding: 0 24px 12px;
+    letter-spacing: 0.3px;
+  }
+
+  .stock-input {
+    background: transparent;
+    border: none;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: inherit;
+    width: 38px;
+    text-align: center;
+    padding: 0;
+    cursor: pointer;
+    border-bottom: 1px dashed rgba(255,255,255,0.15);
+    transition: border-color 0.2s;
+    outline: none;
+  }
+
+  .stock-input:focus {
+    border-bottom-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* CTA */
+  .cta-panel {
+    background: linear-gradient(135deg, rgba(0,229,160,0.08) 0%, rgba(123,94,167,0.08) 100%);
+    border: 1px solid rgba(0,229,160,0.2);
+    border-radius: 16px;
+    padding: 36px;
+    text-align: center;
+    margin-top: 16px;
+  }
+
+  .cta-panel h2 {
+    font-family: var(--head);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 10px;
+  }
+
+  .cta-panel p {
+    color: var(--muted);
+    font-size: 14px;
+    margin-bottom: 24px;
+    font-weight: 300;
+  }
+
+  .btn-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--accent);
+    color: #0a0a0f;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 28px;
+    font-family: var(--head);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    transition: opacity 0.2s;
+  }
+
+  .btn-cta:hover { opacity: 0.85; }
+
+  .progress-bar {
+    height: 2px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 12px;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.12s linear;
+    border-radius: 2px;
+  }
+
+  @media (max-width: 600px) {
+    .channels { grid-template-columns: 1fr; }
+    .sync-col { flex-direction: row; border-left: none; border-right: none; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 12px 24px; flex-wrap: wrap; min-width: auto; }
+    .sync-col-header { margin-bottom: 0; margin-right: 12px; }
+    .sync-row { height: auto; margin: 4px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 10C3 6.13 6.13 3 10 3s7 3.13 7 7-3.13 7-7 7-7-3.13-7-7z" stroke="#0a0a0f" stroke-width="1.5"/>
+          <path d="M7 10h6M10 7v6" stroke="#0a0a0f" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <span class="logo-name">Stock<span>Sync</span></span>
+    </div>
+    <div class="badge-live">
+      <div class="dot-live"></div>
+      DEMO EN VIVO
+    </div>
+  </header>
+
+  <div class="hero">
+    <h1>Tu stock siempre<br><em>sincronizado.</em></h1>
+    <p>Modificá el stock de cualquier canal y presioná Sincronizar — así funciona el sistema cada 15 minutos en producción, de forma automática.</p>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-label">Productos activos</div>
+      <div class="stat-value" id="stat-products">6</div>
+      <div class="stat-sub">2 canales monitoreados</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Conflictos detectados</div>
+      <div class="stat-value" id="stat-conflicts" style="color: var(--red)">2</div>
+      <div class="stat-sub" id="stat-conflicts-sub">desincronizados ahora</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Última sincronización</div>
+      <div class="stat-value" style="font-size:20px; font-weight:600;" id="stat-lasttime">—</div>
+      <div class="stat-sub" id="stat-lastsub">sin sincronizar aún</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Ventas protegidas</div>
+      <div class="stat-value" style="color: var(--ok)">$0</div>
+      <div class="stat-sub">sin errores de overselling</div>
+    </div>
+  </div>
+
+  <!-- MAIN SYNC PANEL -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Estado de canales</span>
+      <div class="sync-status">
+        <div class="status-dot sd-ok" id="global-dot"></div>
+        <span id="global-status-text">2 conflictos detectados</span>
+      </div>
+    </div>
+
+    <p class="edit-hint">✦ Editá cualquier número de stock para simular un cambio en un canal</p>
+
+    <div class="channels">
+      <!-- CANAL 1: MercadoLibre -->
+      <div class="channel">
+        <div class="channel-name">
+          <div class="channel-icon ch-ml">🛒</div>
+          <div>
+            <div class="channel-label">MercadoLibre</div>
+            <div style="font-size:11px; color:var(--muted); font-family:var(--mono)">API v3 · activo</div>
+          </div>
+        </div>
+        <div id="ml-products"></div>
+      </div>
+
+      <!-- SYNC COL -->
+      <div class="sync-col">
+        <div class="sync-col-header">ESTADO</div>
+        <div id="sync-indicators"></div>
+      </div>
+
+      <!-- CANAL 2: Tienda propia -->
+      <div class="channel">
+        <div class="channel-name">
+          <div class="channel-icon ch-tienda">🏪</div>
+          <div>
+            <div class="channel-label">Tienda propia</div>
+            <div style="font-size:11px; color:var(--muted); font-family:var(--mono)">WooCommerce · activo</div>
+          </div>
+        </div>
+        <div id="tienda-products"></div>
+      </div>
+    </div>
+
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+
+    <div class="sync-btn-wrap">
+      <div class="conflict-alert" id="conflict-alert">
+        <span>⚠</span>
+        <span id="conflict-text">2 productos desincronizados</span>
+      </div>
+      <button class="btn-sync" id="btn-sync" onclick="runSync()">
+        <svg viewBox="0 0 16 16" fill="none"><path d="M13.5 2.5A6.5 6.5 0 0 0 2 7.5M2.5 13.5A6.5 6.5 0 0 0 14 8.5M11 2l2.5.5.5 2.5M5 14l-2.5-.5L2 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Sincronizar ahora
+      </button>
+    </div>
+  </div>
+
+  <!-- LOG PANEL -->
+  <div class="log-panel">
+    <div class="panel-header">
+      <span class="panel-title">Log de operaciones</span>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--muted)">tiempo real</span>
+    </div>
+    <div class="log-body" id="log-body">
+      <div class="log-line"><span class="log-time">09:42:01</span><span class="log-info">Sistema iniciado · 6 productos cargados · 2 canales conectados</span></div>
+      <div class="log-line"><span class="log-time">09:42:02</span><span class="log-warn">CONFLICTO detectado — Zapatilla Nike Air [SKU-001]: ML=12 vs Tienda=8</span></div>
+      <div class="log-line"><span class="log-time">09:42:02</span><span class="log-warn">CONFLICTO detectado — Remera Oversize [SKU-004]: ML=0 vs Tienda=5</span></div>
+      <div class="log-line"><span class="log-time">09:42:03</span><span class="log-info">Esperando acción manual o próximo ciclo automático (15 min)</span></div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-panel">
+    <h2>¿Querés esto funcionando en tu negocio?</h2>
+    <p>Setup en 48 horas. Sin contratos. Sin complicaciones técnicas de tu parte.</p>
+    <a href="https://wa.me/5493413000000?text=Hola%2C%20vi%20la%20demo%20de%20StockSync%20y%20me%20interesa" class="btn-cta" target="_blank">
+      💬 Hablar por WhatsApp
+    </a>
+    <p style="margin-top:16px; margin-bottom:0; font-size:12px; color:var(--muted)">Setup desde $80 USD · $20 USD/mes · primer mes gratis</p>
+  </div>
+</div>
+
+<script>
+const products = [
+  { sku: 'SKU-001', name: 'Zapatilla Nike Air', ml: 12, tienda: 8 },
+  { sku: 'SKU-002', name: 'Campera Impermeable', ml: 5, tienda: 5 },
+  { sku: 'SKU-003', name: 'Mochila Urbana 30L', ml: 3, tienda: 3 },
+  { sku: 'SKU-004', name: 'Remera Oversize', ml: 0, tienda: 5 },
+  { sku: 'SKU-005', name: 'Jeans Slim Fit', ml: 7, tienda: 7 },
+  { sku: 'SKU-006', name: 'Gorra Snapback', ml: 1, tienda: 1 },
+];
+
+function stockClass(v) {
+  if (v === 0) return 'stock-zero';
+  if (v <= 2) return 'stock-low';
+  return 'stock-ok';
+}
+
+function getConflicts() {
+  return products.filter(p => p.ml !== p.tienda).length;
+}
+
+function render() {
+  const mlDiv = document.getElementById('ml-products');
+  const tiendaDiv = document.getElementById('tienda-products');
+  const syncDiv = document.getElementById('sync-indicators');
+
+  mlDiv.innerHTML = '';
+  tiendaDiv.innerHTML = '';
+  syncDiv.innerHTML = '';
+
+  products.forEach((p, i) => {
+    const conflict = p.ml !== p.tienda;
+
+    // ML row
+    const rowML = document.createElement('div');
+    rowML.className = 'product-row' + (conflict ? ' conflict' : ' synced');
+    rowML.innerHTML = `
+      <div>
+        <div class="prod-name">${p.name}</div>
+        <div class="prod-sku">${p.sku}</div>
+      </div>
+      <div class="stock-badge ${conflict ? 'stock-conflict' : stockClass(p.ml)}">
+        <input class="stock-input" type="number" min="0" max="999"
+          value="${p.ml}" data-idx="${i}" data-ch="ml"
+          style="color: inherit; width:38px;"
+          onchange="updateStock(${i},'ml',this.value)"
+          onclick="this.select()"
+        >
+      </div>
+    `;
+    mlDiv.appendChild(rowML);
+
+    // Tienda row
+    const rowT = document.createElement('div');
+    rowT.className = 'product-row' + (conflict ? ' conflict' : ' synced');
+    rowT.innerHTML = `
+      <div>
+        <div class="prod-name">${p.name}</div>
+        <div class="prod-sku">${p.sku}</div>
+      </div>
+      <div class="stock-badge ${conflict ? 'stock-conflict' : stockClass(p.tienda)}">
+        <input class="stock-input" type="number" min="0" max="999"
+          value="${p.tienda}" data-idx="${i}" data-ch="tienda"
+          style="color: inherit; width:38px;"
+          onchange="updateStock(${i},'tienda',this.value)"
+          onclick="this.select()"
+        >
+      </div>
+    `;
+    tiendaDiv.appendChild(rowT);
+
+    // Sync indicator
+    const syncRow = document.createElement('div');
+    syncRow.className = 'sync-row';
+    syncRow.innerHTML = conflict
+      ? `<div class="status-dot sd-conflict"></div>`
+      : `<div class="status-dot sd-ok"></div>`;
+    syncDiv.appendChild(syncRow);
+  });
+
+  updateStats();
+}
+
+function updateStats() {
+  const conflicts = getConflicts();
+  document.getElementById('stat-conflicts').textContent = conflicts;
+  document.getElementById('stat-conflicts').style.color = conflicts > 0 ? 'var(--red)' : 'var(--ok)';
+  document.getElementById('stat-conflicts-sub').textContent = conflicts > 0 ? 'desincronizados ahora' : 'todo sincronizado';
+
+  const globalDot = document.getElementById('global-dot');
+  const globalText = document.getElementById('global-status-text');
+  const conflictAlert = document.getElementById('conflict-alert');
+  const conflictText = document.getElementById('conflict-text');
+
+  if (conflicts > 0) {
+    globalDot.className = 'status-dot sd-conflict';
+    globalText.textContent = `${conflicts} conflicto${conflicts > 1 ? 's' : ''} detectado${conflicts > 1 ? 's' : ''}`;
+    conflictAlert.style.display = 'flex';
+    conflictText.textContent = `${conflicts} producto${conflicts > 1 ? 's' : ''} desincronizado${conflicts > 1 ? 's' : ''}`;
+  } else {
+    globalDot.className = 'status-dot sd-ok';
+    globalText.textContent = 'Todos sincronizados ✓';
+    conflictAlert.style.display = 'none';
+  }
+}
+
+function updateStock(idx, ch, val) {
+  const v = Math.max(0, parseInt(val) || 0);
+  products[idx][ch] = v;
+  const now = new Date();
+  const ts = now.toTimeString().slice(0,8);
+  addLog(ts, `EDIT — ${products[idx].name} [${products[idx].sku}] · ${ch === 'ml' ? 'MercadoLibre' : 'Tienda'} → ${v} unidades`, 'log-info');
+  if (products[idx].ml !== products[idx].tienda) {
+    addLog(ts, `CONFLICTO → ML=${products[idx].ml} vs Tienda=${products[idx].tienda} · requiere sincronización`, 'log-warn');
+  }
+  render();
+}
+
+let syncing = false;
+
+async function runSync() {
+  if (syncing) return;
+  const conflicts = getConflicts();
+  if (conflicts === 0) {
+    const now = new Date();
+    addLog(now.toTimeString().slice(0,8), 'Sin conflictos — todo ya está sincronizado', 'log-ok');
+    return;
+  }
+
+  syncing = true;
+  const btn = document.getElementById('btn-sync');
+  btn.disabled = true;
+  btn.innerHTML = `<svg viewBox="0 0 16 16" fill="none" style="animation:spin 0.8s linear infinite"><path d="M13.5 2.5A6.5 6.5 0 0 0 2 7.5M2.5 13.5A6.5 6.5 0 0 0 14 8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Sincronizando...`;
+
+  const style = document.createElement('style');
+  style.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+  document.head.appendChild(style);
+
+  const globalDot = document.getElementById('global-dot');
+  globalDot.className = 'status-dot sd-syncing';
+
+  // Animate progress bar
+  const fill = document.getElementById('progress-fill');
+  fill.style.width = '0%';
+
+  const toSync = products.filter(p => p.ml !== p.tienda);
+  const now = new Date();
+  const base = now.getTime();
+
+  addLog(now.toTimeString().slice(0,8), `Iniciando sincronización · ${toSync.length} conflicto${toSync.length > 1 ? 's' : ''} a resolver`, 'log-info');
+
+  for (let i = 0; i < toSync.length; i++) {
+    await delay(600 + Math.random() * 400);
+    const p = toSync[i];
+    const master = Math.max(p.ml, p.tienda);
+    const idx = products.findIndex(x => x.sku === p.sku);
+    products[idx].ml = master;
+    products[idx].tienda = master;
+
+    const pct = Math.round(((i + 1) / toSync.length) * 100);
+    fill.style.width = pct + '%';
+
+    const t = new Date(base + (i + 1) * 700);
+    addLog(t.toTimeString().slice(0,8),
+      `OK — ${p.name} [${p.sku}] → unificado en ${master} unidades (ML+Tienda)`,
+      'log-ok');
+    render();
+  }
+
+  await delay(300);
+  fill.style.width = '100%';
+  await delay(400);
+  fill.style.width = '0%';
+
+  const finish = new Date();
+  addLog(finish.toTimeString().slice(0,8), `Sincronización completa · ${toSync.length} producto${toSync.length > 1 ? 's' : ''} actualizados · 0 conflictos`, 'log-ok');
+
+  document.getElementById('stat-lasttime').textContent = finish.toTimeString().slice(0,5);
+  document.getElementById('stat-lastsub').textContent = 'hace unos segundos';
+
+  btn.disabled = false;
+  btn.innerHTML = `<svg viewBox="0 0 16 16" fill="none"><path d="M13.5 2.5A6.5 6.5 0 0 0 2 7.5M2.5 13.5A6.5 6.5 0 0 0 14 8.5M11 2l2.5.5.5 2.5M5 14l-2.5-.5L2 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Sincronizar ahora`;
+
+  syncing = false;
+  style.remove();
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function addLog(time, msg, cls) {
+  const log = document.getElementById('log-body');
+  const line = document.createElement('div');
+  line.className = 'log-line log-new';
+  line.innerHTML = `<span class="log-time">${time}</span><span class="${cls}">${msg}</span>`;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+// Init
+render();
+</script>
+
+<!-- ===========================
+     BOT SECTION
+     =========================== -->
+<style>
+  .section-divider {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 56px 0 40px;
+  }
+  .section-divider::before, .section-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .section-divider span {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .bot-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  @media (max-width: 640px) {
+    .bot-wrap { grid-template-columns: 1fr; }
+  }
+
+  /* Config panel */
+  .config-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .config-body {
+    padding: 20px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .field-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .field-input {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-family: var(--body);
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+    width: 100%;
+  }
+
+  .field-input:focus {
+    border-color: rgba(0,229,160,0.4);
+  }
+
+  .field-textarea {
+    resize: vertical;
+    min-height: 80px;
+    line-height: 1.5;
+  }
+
+  .tags-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .tag {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+
+  .tag:hover, .tag.active {
+    background: rgba(0,229,160,0.1);
+    border-color: rgba(0,229,160,0.35);
+    color: var(--accent);
+  }
+
+  .btn-apply {
+    background: rgba(0,229,160,0.12);
+    border: 1px solid rgba(0,229,160,0.25);
+    border-radius: 8px;
+    padding: 10px;
+    font-family: var(--head);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    cursor: pointer;
+    transition: background 0.15s;
+    width: 100%;
+  }
+
+  .btn-apply:hover { background: rgba(0,229,160,0.2); }
+
+  /* Chat panel */
+  .chat-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 480px;
+  }
+
+  .chat-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .bot-avatar {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+
+  .bot-info { flex: 1; }
+
+  .bot-name {
+    font-family: var(--head);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .bot-online {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+  }
+
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 300px;
+    max-height: 340px;
+  }
+
+  .chat-messages::-webkit-scrollbar { width: 3px; }
+  .chat-messages::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .msg {
+    display: flex;
+    gap: 8px;
+    animation: msgIn 0.25s ease;
+    max-width: 90%;
+  }
+
+  @keyframes msgIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+
+  .msg-bubble {
+    padding: 9px 13px;
+    border-radius: 14px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .msg.bot .msg-bubble {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 4px;
+    color: var(--text);
+  }
+
+  .msg.user .msg-bubble {
+    background: rgba(0,229,160,0.12);
+    border: 1px solid rgba(0,229,160,0.2);
+    border-bottom-right-radius: 4px;
+    color: var(--text);
+  }
+
+  .msg-time {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    align-self: flex-end;
+    flex-shrink: 0;
+  }
+
+  .typing-indicator {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    padding: 10px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    border-bottom-left-radius: 4px;
+    width: fit-content;
+  }
+
+  .typing-dot {
+    width: 5px;
+    height: 5px;
+    background: var(--muted);
+    border-radius: 50%;
+    animation: typing 1.2s ease-in-out infinite;
+  }
+
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes typing {
+    0%, 100% { transform: translateY(0); opacity: 0.4; }
+    50% { transform: translateY(-4px); opacity: 1; }
+  }
+
+  /* Suggested questions */
+  .suggestions {
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .suggestion-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-family: var(--body);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .suggestion-btn:hover {
+    border-color: rgba(0,229,160,0.3);
+    color: var(--accent);
+    background: rgba(0,229,160,0.06);
+  }
+
+  /* Chat input */
+  .chat-input-wrap {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .chat-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    padding: 9px 16px;
+    font-family: var(--body);
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .chat-input:focus { border-color: rgba(0,229,160,0.35); }
+  .chat-input::placeholder { color: var(--muted); }
+
+  .btn-send {
+    width: 36px;
+    height: 36px;
+    background: var(--accent);
+    border: none;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+
+  .btn-send:hover { opacity: 0.85; }
+  .btn-send:active { transform: scale(0.93); }
+  .btn-send svg { width: 15px; height: 15px; }
+</style>
+
+<div class="wrap" style="padding-top:0">
+  <div class="section-divider"><span>Módulo 2 · Bot de respuestas con IA</span></div>
+
+  <div class="hero" style="margin-bottom:32px">
+    <h1 style="font-size:clamp(26px,4vw,42px)">Respondé <em>sin</em> estar<br>presente.</h1>
+    <p>Configurá el negocio, escribí las preguntas frecuentes y el bot responde solo. Probalo ahora.</p>
+  </div>
+
+  <div class="bot-wrap">
+    <!-- CONFIG -->
+    <div class="config-panel">
+      <div class="panel-header">
+        <span class="panel-title">Configuración del negocio</span>
+      </div>
+      <div class="config-body">
+        <div class="field-group">
+          <span class="field-label">Nombre del negocio</span>
+          <input class="field-input" id="bot-biz-name" type="text" value="Ropa Urbana MKT" placeholder="Ej: Ferretería El Clavo">
+        </div>
+        <div class="field-group">
+          <span class="field-label">Rubro</span>
+          <div class="tags-wrap" id="rubro-tags">
+            <span class="tag active" data-rubro="ropa">Ropa</span>
+            <span class="tag" data-rubro="restaurant">Restaurante</span>
+            <span class="tag" data-rubro="estetica">Estética</span>
+            <span class="tag" data-rubro="ferreteria">Ferretería</span>
+            <span class="tag" data-rubro="otro">Otro</span>
+          </div>
+        </div>
+        <div class="field-group">
+          <span class="field-label">Horario de atención</span>
+          <input class="field-input" id="bot-hours" type="text" value="Lun–Sáb 10:00 a 20:00">
+        </div>
+        <div class="field-group">
+          <span class="field-label">Info extra (precios, servicios, etc.)</span>
+          <textarea class="field-input field-textarea" id="bot-info">Envíos a todo el país. Medios de pago: efectivo, transferencia, MercadoPago. Cambios hasta 30 días con ticket.</textarea>
+        </div>
+        <button class="btn-apply" onclick="applyConfig()">Aplicar configuración al bot →</button>
+      </div>
+    </div>
+
+    <!-- CHAT -->
+    <div class="chat-panel">
+      <div class="chat-header">
+        <div class="bot-avatar">🤖</div>
+        <div class="bot-info">
+          <div class="bot-name" id="chat-bot-name">Asistente · Ropa Urbana MKT</div>
+          <div class="bot-online">
+            <div class="dot-live"></div>
+            en línea ahora
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-messages" id="chat-messages"></div>
+
+      <div class="suggestions" id="suggestions"></div>
+
+      <div class="chat-input-wrap">
+        <input class="chat-input" id="chat-input" type="text" placeholder="Escribí tu pregunta..."
+          onkeydown="if(event.key==='Enter') sendMessage()">
+        <button class="btn-send" onclick="sendMessage()">
+          <svg viewBox="0 0 15 15" fill="none"><path d="M1 7.5L14 1L8 14L6.5 8.5L1 7.5Z" stroke="#0a0a0f" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---- BOT BRAIN ----
+const rubroData = {
+  ropa: {
+    suggestions: ['¿Tienen talles grandes?', '¿Hacen envíos?', '¿Cuánto tarda el envío?', '¿Aceptan cambios?'],
+    responses: [
+      { keys: ['talle','talla','talle grande','xl','xxl','plus'], ans: 'Sí, trabajamos talles del S al XXL. Si buscás algo en particular, escribinos el modelo y te confirmamos stock.' },
+      { keys: ['envío','envio','mando','mandás','despacho'], ans: 'Hacemos envíos a todo el país por Correo Argentino y Andreani. El costo varía según destino, te lo calculamos al confirmar el pedido.' },
+      { keys: ['demora','tarda','cuándo','cuando llega'], ans: 'Los envíos demoran entre 3 y 7 días hábiles dependiendo de la zona. CABA y GBA suelen llegar antes.' },
+      { keys: ['precio','cuánto sale','cuanto sale','costo','vale'], ans: 'Los precios están actualizados en nuestro Instagram. Para cotizaciones por volumen, escribinos directo.' },
+      { keys: ['cambio','devolución','devolucion','cambiar'], ans: 'Aceptamos cambios hasta 30 días después de la compra, con ticket de compra y el producto sin uso.' },
+      { keys: ['pago','pagar','efectivo','transferencia','mercadopago','tarjeta'], ans: 'Aceptamos efectivo, transferencia bancaria y MercadoPago (con y sin cuotas).' },
+    ]
+  },
+  restaurant: {
+    suggestions: ['¿Tienen delivery?', '¿Cuál es el menú del día?', '¿Aceptan reservas?', '¿Hasta qué hora abren?'],
+    responses: [
+      { keys: ['delivery','envío','envio','a domicilio','pedido'], ans: 'Sí, hacemos delivery por PedidosYa y Rappi. También podés llamarnos para pedido directo con descuento.' },
+      { keys: ['menú','menu','plato','carta','comida'], ans: 'Tenemos menú del día de lunes a viernes con entrada, principal y postre. La carta completa está en nuestro Instagram.' },
+      { keys: ['reserva','reservar','mesa','lugar'], ans: 'Tomamos reservas por WhatsApp o llamada. Te recomendamos reservar con al menos 2 horas de anticipación los fines de semana.' },
+      { keys: ['precio','cuánto sale','cuanto cuesta'], ans: 'El menú del día arranca desde $3.500. Para ver precios de carta completa, consultanos por WhatsApp.' },
+      { keys: ['vegano','vegetariano','sin gluten','celíaco','celiaco'], ans: 'Tenemos opciones vegetarianas y sin TACC. Indicanos tu preferencia al hacer el pedido.' },
+      { keys: ['pago','pagar','efectivo','tarjeta','mercadopago'], ans: 'Aceptamos efectivo, todas las tarjetas y MercadoPago sin recargo.' },
+    ]
+  },
+  estetica: {
+    suggestions: ['¿Cómo saco turno?', '¿Qué servicios tienen?', '¿Cuánto sale una manicura?', '¿Tienen lugar esta semana?'],
+    responses: [
+      { keys: ['turno','reserva','reservar','sacar','agendar'], ans: 'Los turnos se sacan por WhatsApp o Instagram. Respondemos en minutos en horario de atención.' },
+      { keys: ['servicio','qué hacen','qué ofrecen','tratamiento'], ans: 'Ofrecemos manicura, pedicura, depilación, faciales y extensiones. Para ver el menú completo, visitá nuestro Instagram.' },
+      { keys: ['precio','cuánto sale','cuanto cuesta','tarifa'], ans: 'Los precios arrancan desde $2.500 según el servicio. Escribinos para una cotización exacta.' },
+      { keys: ['lugar','disponible','disponibilidad','esta semana','hoy'], ans: 'La disponibilidad varía semana a semana. Escribinos por WhatsApp y te pasamos los turnos libres.' },
+      { keys: ['cancelar','cancelación','reprogramar'], ans: 'Podés cancelar o reprogramar hasta 2 horas antes sin cargo. Después se cobra el 50% del servicio.' },
+      { keys: ['pago','pagar','efectivo','tarjeta','mercadopago'], ans: 'Aceptamos efectivo, transferencia y MercadoPago.' },
+    ]
+  },
+  ferreteria: {
+    suggestions: ['¿Tienen pinturas?', '¿Hacen entregas?', '¿Tienen asesoramiento?', '¿Cuál es el horario?'],
+    responses: [
+      { keys: ['pintura','látex','esmalte','barniz'], ans: 'Sí, trabajamos con las principales marcas: Sherwin-Williams, Alba y Sinteplast. ¿Necesitás interior, exterior o esmalte?' },
+      { keys: ['entrega','envío','envio','a domicilio','llevan'], ans: 'Hacemos entregas a domicilio para compras mayores a $5.000 dentro del radio de 5km. Coordinamos el horario con vos.' },
+      { keys: ['asesoramiento','ayuda','no sé','no se'], ans: 'Claro, estamos para ayudarte. Contanos qué necesitás hacer y te orientamos con los materiales y las cantidades.' },
+      { keys: ['precio','cuánto sale','cuanto sale','presupuesto'], ans: 'Los precios se actualizan seguido. Escribinos el artículo específico y te pasamos el precio del día.' },
+      { keys: ['pago','pagar','cuotas','tarjeta','efectivo'], ans: 'Aceptamos efectivo, tarjetas de débito y crédito (hasta 6 cuotas sin interés) y transferencia.' },
+    ]
+  },
+  otro: {
+    suggestions: ['¿Cuál es el horario?', '¿Cómo puedo contactarlos?', '¿Aceptan MercadoPago?', '¿Hacen envíos?'],
+    responses: [
+      { keys: ['horario','hora','abren','cierran','atención','atencion'], ans: '' },
+      { keys: ['contacto','teléfono','telefono','llamar','whatsapp','instagram'], ans: 'Podés contactarnos por WhatsApp o Instagram. Respondemos en horario de atención.' },
+      { keys: ['pago','pagar','mercadopago','transferencia','efectivo','tarjeta'], ans: '' },
+      { keys: ['envío','envio','delivery','despacho','mandan'], ans: '' },
+    ]
+  }
+};
+
+let currentRubro = 'ropa';
+let botConfig = {
+  name: 'Ropa Urbana MKT',
+  hours: 'Lun–Sáb 10:00 a 20:00',
+  info: 'Envíos a todo el país. Medios de pago: efectivo, transferencia, MercadoPago. Cambios hasta 30 días con ticket.',
+  rubro: 'ropa'
+};
+
+let botTyping = false;
+
+function getTime() {
+  return new Date().toTimeString().slice(0,5);
+}
+
+function addMessage(text, who) {
+  const container = document.getElementById('chat-messages');
+  const msg = document.createElement('div');
+  msg.className = `msg ${who}`;
+  msg.innerHTML = `
+    <div class="msg-bubble">${text}</div>
+    <span class="msg-time">${getTime()}</span>
+  `;
+  container.appendChild(msg);
+  container.scrollTop = container.scrollHeight;
+}
+
+function showTyping() {
+  const container = document.getElementById('chat-messages');
+  const t = document.createElement('div');
+  t.className = 'msg bot';
+  t.id = 'typing-msg';
+  t.innerHTML = `<div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
+  container.appendChild(t);
+  container.scrollTop = container.scrollHeight;
+}
+
+function removeTyping() {
+  const t = document.getElementById('typing-msg');
+  if (t) t.remove();
+}
+
+function getBotResponse(input) {
+  const lower = input.toLowerCase();
+  const data = rubroData[botConfig.rubro] || rubroData.otro;
+
+  // Check horario
+  if (/horario|hora|abren|cierran|atención|atencion|cuando/.test(lower)) {
+    return `Nuestro horario de atención es ${botConfig.hours}. ¿Hay algo más en lo que pueda ayudarte?`;
+  }
+
+  // Check pago (generic)
+  if (/pago|pagar|mercadopago|transferencia|efectivo|tarjeta|cuotas/.test(lower)) {
+    if (botConfig.info.toLowerCase().includes('mercadopago')) {
+      return `Aceptamos los medios de pago detallados en nuestro negocio. ${botConfig.info.includes('transferencia') ? 'Transferencia bancaria, efectivo y MercadoPago disponibles.' : ''} ¿Necesitás algo más?`;
+    }
+  }
+
+  // Match rubro responses
+  for (const r of data.responses) {
+    if (r.keys.some(k => lower.includes(k))) {
+      const ans = r.ans || `Para consultas sobre eso, escribinos directamente y te respondemos enseguida. Estamos en ${botConfig.hours}.`;
+      return ans + (ans.endsWith('?') ? '' : ' ¿Te puedo ayudar con algo más?');
+    }
+  }
+
+  // Greeting
+  if (/hola|buenas|buen día|buen dia|hey|hi/.test(lower)) {
+    return `¡Hola! 👋 Soy el asistente de *${botConfig.name}*. Estoy acá para responder tus preguntas sobre horarios, envíos, pagos y más. ¿En qué te puedo ayudar?`;
+  }
+
+  // Fallback
+  return `Gracias por escribir a *${botConfig.name}*. Para esta consulta puntual, uno de nuestros asistentes te va a responder en breve. Nuestro horario de atención es ${botConfig.hours}.`;
+}
+
+async function sendMessage(text) {
+  if (botTyping) return;
+  const input = document.getElementById('chat-input');
+  const msg = text || input.value.trim();
+  if (!msg) return;
+
+  input.value = '';
+  addMessage(msg, 'user');
+
+  botTyping = true;
+  showTyping();
+
+  const delay = 900 + Math.random() * 800;
+  await new Promise(r => setTimeout(r, delay));
+
+  removeTyping();
+  const response = getBotResponse(msg);
+  addMessage(response, 'bot');
+  botTyping = false;
+}
+
+function renderSuggestions() {
+  const data = rubroData[botConfig.rubro] || rubroData.otro;
+  const wrap = document.getElementById('suggestions');
+  wrap.innerHTML = data.suggestions.map(s =>
+    `<button class="suggestion-btn" onclick="sendMessage('${s}')">${s}</button>`
+  ).join('');
+}
+
+function applyConfig() {
+  botConfig.name = document.getElementById('bot-biz-name').value || 'Mi Negocio';
+  botConfig.hours = document.getElementById('bot-hours').value || '9:00 a 18:00';
+  botConfig.info = document.getElementById('bot-info').value || '';
+  botConfig.rubro = currentRubro;
+
+  document.getElementById('chat-bot-name').textContent = `Asistente · ${botConfig.name}`;
+
+  // Clear chat and restart
+  const container = document.getElementById('chat-messages');
+  container.innerHTML = '';
+  setTimeout(() => {
+    addMessage(`¡Hola! 👋 Soy el asistente de *${botConfig.name}*. Estoy acá para responder tus preguntas. ¿En qué te puedo ayudar?`, 'bot');
+  }, 300);
+
+  renderSuggestions();
+}
+
+// Rubro tags
+document.getElementById('rubro-tags').addEventListener('click', e => {
+  const tag = e.target.closest('.tag');
+  if (!tag) return;
+  document.querySelectorAll('#rubro-tags .tag').forEach(t => t.classList.remove('active'));
+  tag.classList.add('active');
+  currentRubro = tag.dataset.rubro;
+});
+
+// Init chat
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    addMessage(`¡Hola! 👋 Soy el asistente de *${botConfig.name}*. Estoy acá para responder tus preguntas sobre horarios, envíos, pagos y más. ¿En qué te puedo ayudar?`, 'bot');
+    renderSuggestions();
+  }, 500);
+});
+</script>
+</body>
+</html>
